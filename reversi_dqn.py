@@ -28,9 +28,9 @@ class ReversiEnv(gym.core.Env):
 
     def return_step(self, done, result=None):
         if done:
-            if result == Result.win:
+            if result is Result.win:
                 reward = 1
-            elif result == Result.lose:
+            elif result is Result.lose:
                 reward = -1
             else:
                 reward = 0
@@ -50,12 +50,12 @@ class ReversiEnv(gym.core.Env):
         return np.hstack( (self._possible_place.astype(np.float32), board) )
 
     def _disk_to_vector(self, disk):
-        if disk == self._player.color:
-            return [1, 0, 0]
-        elif disk == self._player.color.reverse():
-            return [0, 1, 0]
+        if disk is self._player.color:
+            return (1, 0, 0)
+        elif disk is self._player.color.reverse():
+            return (0, 1, 0)
         else:
-            return [0, 0, 1]
+            return (0, 0, 1)
 
     def action_space_sample(self):
         place_list = np.where(self._possible_place)[0].astype(np.int32)
@@ -102,7 +102,7 @@ class QFunction(chainer.Chain):
 
 class ReversiDQN(chainerrl.agents.DoubleDQN):
     def __init__(self, env, activation_func, n_layers, n_hidden_channels,
-        gpu=None, gamma=0.95, start_epsilon=1.0, end_epsilon=0.3, decay_steps=50000):
+        gpu, gamma, start_epsilon, end_epsilon, decay_steps):
 
         obs_size  = env.observation_space.shape[0]
         n_actions = env.action_space.n
@@ -124,17 +124,17 @@ class ReversiDQN(chainerrl.agents.DoubleDQN):
         ReversiActionValue.setup_dummy_action(self.xp)
 
 class ReversiAI:
-    def __init__(self, activation_func, n_layers, n_hidden_channels,
-        gpu=None, gamma=0.95, start_epsilon=1.0, end_epsilon=0.3, decay_steps=50000):
+    def __init__( self, activation_func, n_layers, n_hidden_channels,
+        gamma         = 0.95,
+        start_epsilon = 1.0,
+        end_epsilon   = 0.3,
+        decay_steps   = 50000,
+        gpu           = None ):
 
         self.env = ReversiEnv()
         activation_func_ = eval('F.{}'.format(activation_func))
         self.agent = ReversiDQN( self.env, activation_func_, n_layers, n_hidden_channels,
-            gpu           = gpu,
-            gamma         = gamma,
-            start_epsilon = start_epsilon,
-            end_epsilon   = end_epsilon,
-            decay_steps   = decay_steps )
+            gpu, gamma, start_epsilon, end_epsilon, decay_steps )
 
     def generate_trainer(self):
         return DQNTrainer(self)
@@ -158,14 +158,14 @@ class DQNTrainer(Player):
         self._ai.agent.stop_episode_and_train(obs, reward, True)
 
 class DQNPlayer(Player):
-    def __init__(self, ai, delay=0.5):
+    def __init__(self, ai, delay):
         self._ai = ai
         self._ai.env.reset(self)
         self._delay = delay
 
     @TailRecursive()
     def tell_your_turn(self):
-        #time.sleep(self._delay)
+        time.sleep(self._delay)
 
         obs, reward = self._ai.env.return_step(False)
         action = self._ai.agent.act(obs)
@@ -175,4 +175,4 @@ class DQNPlayer(Player):
         obs, reward = self._ai.env.return_step(True, result)
         self._ai.agent.stop_episode()
 
-        print( "{0} DQN {1}!".format(str(self.color), str(result)) )
+        #print( "{0} DQN {1}!".format(str(self.color), str(result)) )

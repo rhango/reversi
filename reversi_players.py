@@ -27,7 +27,7 @@ class Random(Player):
 
     @TailRecursive()
     def tell_your_turn(self):
-        #time.sleep(self._delay)
+        time.sleep(self._delay)
 
         place_list = [
             (row, col)

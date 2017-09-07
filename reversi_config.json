@@ -1,6 +1,6 @@
 {
     "DQN": {
-        "target": "DQN0",
+        "target": "leaky_relu-5x256-100000-0",
         "list": {
             "DQN10": {
                 "activation_func"   : "leaky_relu",

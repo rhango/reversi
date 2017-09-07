@@ -116,7 +116,7 @@ class Square(QFrame):
         self.setStyleSheet("background-color: green;")
 
     def mousePressEvent(self, event):
-        if self._app.game:
+        if self._app.game is not None:
             turn = self._app.game.board.current_turn
             player = self._app.game.player[turn]
             if hasattr(player, 'tell_where_clicked'):
@@ -138,9 +138,9 @@ class DiskGraphic(QFrame):
         self.set_state(Disk.null)
 
     def set_state(self, state):
-        if state == Disk.dark:
+        if state is Disk.dark:
             color = "black"
-        elif state == Disk.light:
+        elif state is Disk.light:
             color = "white"
         else:
             color = "green"
@@ -196,7 +196,7 @@ class NewGameButton(QPushButton):
         self.clicked.connect(self._create_new_game)
 
     def _create_new_game(self):
-        if self._app.thread and self._app.thread.is_alive():
+        if self._app.thread is not None and self._app.thread.is_alive():
             self._app.game.need_game_stop = True
             self._app.thread.join()
 
@@ -231,10 +231,10 @@ class GameEventLoop(QTimer):
         self.queue = queue.Queue()
         self._render = render
         self._need_render = False
-        self.timeout.connect(self.run)
+        self.timeout.connect(self._run)
         self.start(100)
 
-    def run(self):
+    def _run(self):
         if self._need_render:
             self._need_render = False
             self._render()
