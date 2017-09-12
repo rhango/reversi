@@ -50,11 +50,11 @@ class Player(metaclass=ABCMeta):
         pass
 
 class Board:
-    _directions = {
+    _directions = tuple(
         (x, y)
         for x in (-1, 0, 1)
             for y in (-1, 0, 1)
-                if x != 0 or y != 0 }
+                if x != 0 or y != 0)
 
     def __init__(self):
         self.array = [ [
@@ -70,16 +70,19 @@ class Board:
 
     def _can_reverse_line(self, pos, dir):
         enemy = self.current_turn.reverse()
-        p = [ pos_ + dir_ for pos_, dir_ in zip(pos, dir) ]
+        x, y = dir
+        row = pos[0] + x
+        col = pos[1] + y
 
-        if self.array[p[0]][p[1]] is not enemy:
+        if self.array[row][col] is not enemy:
             return False
 
         while True:
-            p = [ p_ + dir_ for p_, dir_ in zip(p, dir) ]
-            if self.array[p[0]][p[1]] is enemy:
+            row += x
+            col += y
+            if self.array[row][col] is enemy:
                 continue
-            elif self.array[p[0]][p[1]] is self.current_turn:
+            elif self.array[row][col] is self.current_turn:
                 return True
             else:
                 return False
@@ -88,7 +91,7 @@ class Board:
         if self.array[row][col] is not Disk.null:
             return False
 
-        return any([ self._can_reverse_line((row,col), dir) for dir in self._directions ])
+        return any(self._can_reverse_line((row,col), dir) for dir in self._directions)
 
     def update_possible_place(self):
         self.possible_place = [ [
@@ -97,16 +100,19 @@ class Board:
             for row in range(8) ]
 
     def exist_possible_place(self):
-        return any([ any(possible_row) for possible_row in self.possible_place ])
+        return any(any(possible_row) for possible_row in self.possible_place)
 
     def _reverse_line(self, pos, dir):
         if self._can_reverse_line(pos, dir):
             enemy = self.current_turn.reverse()
-            p = [ pos_ + dir_ for pos_, dir_ in zip(pos, dir) ]
+            x, y = dir
+            row = pos[0] + x
+            col = pos[1] + y
 
-            while self.array[p[0]][p[1]] is enemy:
-                self.array[p[0]][p[1]] = self.array[p[0]][p[1]].reverse()
-                p = [ p_ + dir_ for p_, dir_ in zip(p, dir) ]
+            while self.array[row][col] is enemy:
+                self.array[row][col] = self.current_turn
+                row += x
+                col += y
 
     def put_disk(self, row, col):
         self.array[row][col] = self.current_turn
@@ -115,7 +121,7 @@ class Board:
             self._reverse_line((row,col), dir)
 
     def get_game_result(self):
-        s = sum([ sum(array_row[0:8]) for array_row in self.array[0:8] ])
+        s = sum(sum(array_row[0:8]) for array_row in self.array[0:8])
 
         if s > 0:
             return { Disk.dark: Result.win, Disk.light: Result.lose }
