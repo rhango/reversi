@@ -137,7 +137,7 @@ class Train(Battle):
         print("Total Time:", self._timer.get_time())
 
 def create_ai(activation_func, n_layers, n_hidden_channels, decay_steps=50000, gpu=0):
-    ai = ReversiAI(activation_func, n_hidden_channels, n_hidden_channels, decay_steps=decay_steps, gpu=gpu)
+    ai = ReversiAI(activation_func, n_layers, n_hidden_channels, decay_steps=decay_steps, gpu=gpu)
 
     ai_name = '{activation_func}-{n_layers}x{n_hidden_channels}-d{decay_steps}'.format(
         activation_func   = activation_func,
@@ -151,17 +151,17 @@ def main():
     ai, ai_name = create_ai(
         activation_func   = 'leaky_relu',
         n_layers          = 5,
-        n_hidden_channels = 128,
+        n_hidden_channels = 256,
         decay_steps       = 50000 )
 
-    enemy_ai = ReversiAI('leaky_relu', 5, 128, gpu=0)
+    enemy_ai = ReversiAI('leaky_relu', 5, 256, gpu=0)
     ai_name += '-vsAI'
 
     train = Train(
         ai            = ai,
         ai_name       = ai_name,
         enemy_gen     = enemy_ai.generate_trainer,
-        n_games       = 30000,
+        n_games       = 50000,
         save_timings  = {10000, 20000, 50000},
         tester_gen    = non_delay(Random),
         n_tests       = 100,

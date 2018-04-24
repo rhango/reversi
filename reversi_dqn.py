@@ -15,7 +15,8 @@ class ReversiEnv(gym.core.Env):
         self.action_space = gym.spaces.Discrete(64)
         self.observation_space = gym.spaces.Box(
             low = np.zeros(8*8*4, dtype=np.float32),
-            high = np.ones(8*8*4, dtype=np.float32) )
+            high = np.ones(8*8*4, dtype=np.float32),
+            dtype = np.float32 )
 
     def reset(self, player):
         self._player = player

@@ -7,4 +7,5 @@ DQN/*
 data/*
 !data/.gitkeep
 
+profile
 backup
