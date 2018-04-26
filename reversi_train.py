@@ -55,7 +55,7 @@ class Test(Battle):
     _fieldnames = [ "N Games", "Dark WR", "Light WR", "Total WR", "Time" ]
 
     def __init__(self, ai, tester_gen, n_tests, timer=None, file_name=None):
-        super().__init__( (non_delay(ai.generate_player), tester_gen), n_tests )
+        super().__init__( (non_delay(ai.generate_player), non_delay(tester_gen)), n_tests )
         self._n_tests = n_tests
         self._timer   = timer
 
@@ -120,7 +120,7 @@ class Train(Battle):
 
     def func_before_battle(self):
         self._timer.start()
-        #self._test(game_idx=0)
+        self._test(game_idx=0)
 
     def func_after_game(self, game_idx, result):
         print(game_idx)
@@ -136,35 +136,44 @@ class Train(Battle):
     def func_after_battle(self):
         print("Total Time:", self._timer.get_time())
 
-def create_ai(activation_func, n_layers, n_hidden_channels, decay_steps=50000, gpu=0):
+def generate_ai(activation_func, n_layers, n_hidden_channels, decay_steps=50000, enemy='RND', gpu=0):
     ai = ReversiAI(activation_func, n_layers, n_hidden_channels, decay_steps=decay_steps, gpu=gpu)
 
-    ai_name = '{activation_func}-{n_layers}x{n_hidden_channels}-d{decay_steps}'.format(
+    if enemy == 'RND':
+        enemy_gen = non_delay(Random)
+    elif enemy == 'DQN':
+        enemy_ai = ReversiAI(activation_func, n_layers, n_hidden_channels, decay_steps=decay_steps, gpu=gpu)
+        enemy_gen = enemy_ai.generate_trainer
+
+    ai_name = '{activation_func}-{n_layers}x{n_hidden_channels}'.format(
         activation_func   = activation_func,
         n_layers          = n_layers,
-        n_hidden_channels = n_hidden_channels,
-        decay_steps       = decay_steps )
+        n_hidden_channels = n_hidden_channels )
 
-    return ai, ai_name
+    if decay_steps != 50000:
+        ai_name += '-d' + decay_steps
+
+    ai_name += '-vs' + enemy
+
+    return ai, ai_name, enemy_gen
 
 def main():
-    ai, ai_name = create_ai(
+    ai, ai_name, enemy_gen = generate_ai(
         activation_func   = 'leaky_relu',
         n_layers          = 5,
         n_hidden_channels = 256,
-        decay_steps       = 50000 )
+        enemy             = 'RND' )
 
-    enemy_ai = ReversiAI('leaky_relu', 5, 256, gpu=0)
-    ai_name += '-vsAI'
+    ai_name += '-1'
 
     train = Train(
         ai            = ai,
         ai_name       = ai_name,
-        enemy_gen     = enemy_ai.generate_trainer,
-        n_games       = 50000,
-        save_timings  = {10000, 20000, 50000},
-        tester_gen    = non_delay(Random),
-        n_tests       = 100,
+        enemy_gen     = enemy_gen,
+        n_games       = 100000,
+        save_timings  = {10000, 20000, 50000, 100000},
+        tester_gen    = Random,
+        n_tests       = 400,
         test_interval = 1000 )
 
     train()
