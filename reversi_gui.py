@@ -218,7 +218,7 @@ class ResultMessage(QMessageBox):
 
     def _setup_style(self, color, result):
         self.setWindowTitle("Game Result")
-        self.setText("{0} Player {1}!".format(str(color), str(result)))
+        self.setText("{} Player {}!".format(str(color), str(result)))
 
 class GameThread(threading.Thread):
     def __init__(self, target, args=()):

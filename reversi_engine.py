@@ -145,6 +145,7 @@ class Reversi:
 
     @TailRecursive()
     def tell_where_put(self, row, col):
+        assert self.board.possible_place[row][col], "Can't put disk on ({}, {})".format(row, col)
         self.board.put_disk(row, col)
         self.board.current_turn = self.board.current_turn.reverse()
         return self._process_turn()

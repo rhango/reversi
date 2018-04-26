@@ -63,11 +63,6 @@ class ReversiEnv(gym.core.Env):
         return prng.np_random.choice(place_list)
 
 class ReversiActionValue(chainerrl.action_value.DiscreteActionValue):
-    @classmethod
-    def setup_dummy_action(cls, xp):
-        cls._dummy_action_col = xp.zeros(64, dtype=np.bool)
-        cls._dummy_action_col[27] = True
-
     def __init__(self, q_values, possible_places, q_values_formatter=lambda x: x):
         super().__init__(q_values, q_values_formatter)
         self._impossible_places = ~possible_places.astype(np.bool)
@@ -76,11 +71,6 @@ class ReversiActionValue(chainerrl.action_value.DiscreteActionValue):
     def greedy_actions(self):
         q_val = self.q_values.data.copy()
         q_val[ self._impossible_places ] = -np.inf
-
-        # currently, CuPy only supports slices that consist of one boolean array.
-        #q_val[ self._impossible_places.all(axis=1), 27 ] = 0.0
-        q_val[ self._impossible_places.all(axis=1).reshape((-1,1)) * self._dummy_action_col ] = 0.0
-
         return chainer.Variable( q_val.argmax(axis=1).astype(np.int32) )
 
 class QFunction(chainer.Chain):
@@ -93,7 +83,7 @@ class QFunction(chainer.Chain):
             self._layers.append( L.Linear(n_hidden_channels, n_hidden_channels) )
         self._layers.append( L.Linear(n_hidden_channels, n_actions) )
 
-        super().__init__( **{ "l{}".format(idx): layer for idx, layer in enumerate(self._layers) } )
+        super().__init__( **{ 'l{}'.format(idx): layer for idx, layer in enumerate(self._layers) } )
 
     def __call__(self, x, test=False):
         h = self.l0(x)
@@ -121,8 +111,6 @@ class ReversiDQN(chainerrl.agents.DoubleDQN):
             random_action_func = env.action_space_sample )
 
         super().__init__(q_func, optimizer, replay_buffer, gamma, explorer, gpu=gpu)
-
-        ReversiActionValue.setup_dummy_action(self.xp)
 
 class ReversiAI:
     def __init__( self, activation_func, n_layers, n_hidden_channels,
@@ -176,4 +164,4 @@ class DQNPlayer(Player):
         obs, reward = self._ai.env.return_step(True, result)
         self._ai.agent.stop_episode()
 
-        #print( "{0} DQN {1}!".format(str(self.color), str(result)) )
+        #print( "{} DQN {}!".format(str(self.color), str(result)) )

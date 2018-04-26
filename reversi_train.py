@@ -100,7 +100,7 @@ class Test(Battle):
         if self._need_export:
             self._writer.writerow(data)
         for fieldname in self._fieldnames:
-            print("{0}: {1}; ".format(fieldname, data[fieldname]), end="")
+            print("{}: {}; ".format(fieldname, data[fieldname]), end="")
         print()
 
     def __del__(self):
