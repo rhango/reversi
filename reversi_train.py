@@ -1,3 +1,4 @@
+import sys
 import csv
 import time
 from reversi_engine import *
@@ -52,17 +53,19 @@ class Battle:
         pass
 
 class Test(Battle):
-    _fieldnames = [ "N Games", "Dark WR", "Light WR", "Total WR", "Time" ]
+    fieldnames = [ "N Games", "Dark WR", "Light WR", "Total WR", "Time" ]
 
     def __init__(self, ai, tester_gen, n_tests, timer=None, file_name=None):
         super().__init__( (non_delay(ai.generate_player), non_delay(tester_gen)), n_tests )
         self._n_tests = n_tests
         self._timer   = timer
 
+        self._data = { fieldname: None for fieldname in self.fieldnames }
+
         if file_name is not None:
             self._need_export = True
             self._file   = open('data/{}.csv'.format(file_name), 'w')
-            self._writer = csv.DictWriter(self._file, fieldnames=self._fieldnames)
+            self._writer = csv.DictWriter(self._file, fieldnames=self.fieldnames)
             self._writer.writeheader()
         else:
             self._need_export = False
@@ -73,6 +76,7 @@ class Test(Battle):
     def __call__(self, game_idx=None):
         self._game_idx = game_idx
         super().__call__()
+        return self._data
 
     def func_after_game(self, test_idx, result):
         if (test_idx + 1) % 2 == 0:
@@ -84,24 +88,20 @@ class Test(Battle):
             self._wr[ai_color] += 1
 
     def func_after_battle(self):
-        data = {}
         if self._game_idx is not None:
-            data["N Games"] = self._game_idx
+            self._data["N Games"] = self._game_idx
         else:
-            data["N Games"] = "--"
+            self._data["N Games"] = "--"
         for color in (Disk.dark, Disk.light):
-            data[ "{} WR".format(str(color)) ] = self._wr[color] / (self._n_tests/2)
-        data["Total WR"] = sum(self._wr.values()) / self._n_tests
+            self._data[ "{} WR".format(str(color)) ] = self._wr[color] / (self._n_tests/2)
+        self._data["Total WR"] = sum(self._wr.values()) / self._n_tests
         if self._timer is not None:
-            data["Time"] = self._timer.get_time()
+            self._data["Time"] = self._timer.get_time()
         else:
-            data["Time"] = "--"
+            self._data["Time"] = "--"
 
         if self._need_export:
-            self._writer.writerow(data)
-        for fieldname in self._fieldnames:
-            print("{}: {}; ".format(fieldname, data[fieldname]), end="")
-        print()
+            self._writer.writerow(self._data)
 
     def __del__(self):
         if self._need_export:
@@ -118,14 +118,18 @@ class Train(Battle):
         self._test  = Test(self._ai, tester_gen, n_tests, self._timer, self._ai_name)
         self._test_interval = test_interval
 
+        self._outctl = OutputController()
+
     def func_before_battle(self):
         self._timer.start()
-        self._test(game_idx=0)
+        result = self._test(game_idx=0)
+        self._outctl.output_test_result(result)
 
     def func_after_game(self, game_idx, result):
-        print(game_idx)
+        self._outctl.update_game_idx(game_idx)
         if game_idx % self._test_interval == 0:
-            self._test(game_idx)
+            result = self._test(game_idx)
+            self._outctl.output_test_result(result)
 
         if game_idx in self._save_timings:
             agent_name = '{ai_name}-{game_idx}'.format(
@@ -133,8 +137,39 @@ class Train(Battle):
                 game_idx = game_idx )
             self._ai.agent.save( 'DQN/{}'.format(agent_name) )
 
-    def func_after_battle(self):
-        print("Total Time:", self._timer.get_time())
+class OutputController:
+    def __init__(self):
+        self._idx_updating = False
+
+        sys.stderr.write("\n")
+        sys.stderr.flush()
+        print("    ".join(("{:<9}".format(label) for label in Test.fieldnames)))
+
+    def update_game_idx(self, game_idx):
+        if not self._idx_updating:
+            self._idx_updating = True
+            sys.stderr.write("\n")
+
+        sys.stderr.write("\rNum of games: {:>7}".format(game_idx))
+        sys.stderr.flush()
+
+    def output_test_result(self, result):
+        if self._idx_updating:
+            self._idx_updating = False
+            sys.stderr.write("\033[1M\033[F")
+            sys.stderr.flush()
+
+        time = int(result["Time"])
+        time, second = divmod(time, 60)
+        hour, minute = divmod(time, 60)
+
+        print("{n_games:>9}    {dark:>9.2%}    {light:>9.2%}    {total:>9.2%}    {time:9}".format(
+            n_games = result["N Games"],
+            dark    = result["Dark WR"],
+            light   = result["Light WR"],
+            total   = result["Total WR"],
+            time    = "{:>3}:{:0>2}:{:0>2}".format(hour, minute, second)
+        ))
 
 def generate_ai(activation_func, n_layers, n_hidden_channels, decay_steps=50000, enemy='RND', gpu=0):
     ai = ReversiAI(activation_func, n_layers, n_hidden_channels, decay_steps=decay_steps, gpu=gpu)
