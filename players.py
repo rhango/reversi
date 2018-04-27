@@ -1,7 +1,7 @@
 import time
 import random
 from tail_recursive import *
-from reversi_engine import *
+from engine import *
 
 class Human(Player):
     def __init__(self, tell_win_or_lose):

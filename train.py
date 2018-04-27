@@ -1,9 +1,9 @@
 import sys
 import csv
 import time
-from reversi_engine import *
-from reversi_players import *
-from reversi_dqn import *
+from engine import *
+from players import *
+from dqn import *
 
 class Timer:
     def __init__(self):

@@ -5,9 +5,9 @@ import queue
 import threading
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
-from reversi_engine import *
-from reversi_players import *
-from reversi_dqn import *
+from engine import *
+from players import *
+from dqn import *
 
 class Application(QApplication):
     def __init__(self):
@@ -16,7 +16,7 @@ class Application(QApplication):
         self.thread = None
         self.game   = None
 
-        with open('reversi_config.json', 'r') as file:
+        with open('config.json', 'r') as file:
             self.config = json.loads(file.read())
 
         dqn = self.config["DQN"]["target"]

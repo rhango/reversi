@@ -1,4 +1,4 @@
-from reversi_gui import *
+from gui import *
 
 def main():
     app = Application()

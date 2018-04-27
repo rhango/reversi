@@ -8,7 +8,7 @@ import chainerrl
 import gym
 import gym.spaces
 from gym.spaces import prng
-from reversi_engine import *
+from engine import *
 
 class ReversiEnv(gym.core.Env):
     def __init__(self):
