@@ -131,6 +131,8 @@ class Board:
             return { Disk.dark: Result.draw, Disk.light: Result.draw }
 
 class Reversi:
+    tail_recursive = TailRecursive()
+
     def __init__(self, dark_player, light_player, render=None):
         self.player = {
             Disk.dark : dark_player.setup_player(  self, Disk.dark  ),
@@ -143,14 +145,14 @@ class Reversi:
     def start_game(self):
         return self._process_turn()
 
-    @TailRecursive()
+    @tail_recursive
     def tell_where_put(self, row, col):
         assert self.board.possible_place[row][col], "Can't put disk on ({}, {})".format(row, col)
         self.board.put_disk(row, col)
         self.board.current_turn = self.board.current_turn.reverse()
         return self._process_turn()
 
-    @TailRecursive()
+    @tail_recursive
     def _process_turn(self):
         if self.need_game_stop:
             return None

@@ -25,7 +25,7 @@ class Random(Player):
     def __init__(self, delay=0.5):
         self._delay = delay
 
-    @TailRecursive()
+    @Reversi.tail_recursive
     def tell_your_turn(self):
         time.sleep(self._delay)
 

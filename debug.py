@@ -1,7 +1,9 @@
+from functools import wraps
 import numpy as np
 import matplotlib.pyplot as plt
 
 def output_q_vals(q_func):
+    @wraps(q_func)
     def _q_func(self, x, test=False):
         action_val = q_func(self, x, test)
 

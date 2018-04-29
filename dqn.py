@@ -23,7 +23,7 @@ class ReversiEnv(gym.core.Env):
     def reset(self, player):
         self._player = player
 
-    @TailRecursive()
+    @Reversi.tail_recursive
     def call_step(self, action):
         row, col = divmod(action, 8)
         return self._player.game.tell_where_put(row, col)
@@ -138,7 +138,7 @@ class DQNTrainer(Player):
         self._ai = ai
         self._ai.env.reset(self)
 
-    @TailRecursive()
+    @Reversi.tail_recursive
     def tell_your_turn(self):
         obs, reward = self._ai.env.return_step(False)
         action = self._ai.agent.act_and_train(obs, reward)
@@ -154,7 +154,7 @@ class DQNPlayer(Player):
         self._ai.env.reset(self)
         self._delay = delay
 
-    @TailRecursive()
+    @Reversi.tail_recursive
     def tell_your_turn(self):
         time.sleep(self._delay)
 

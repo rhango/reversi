@@ -1,34 +1,29 @@
 from functools import wraps
 
 class TailRecursive:
-    CONTINUE = object()
-    is_first_call = [ True ]
-    func = [ None ]
-    arg  = [ None, None ]
-
     def __init__(self):
-        pass
+        self.CONTINUE = object()
+        self.is_first_call = True
+        self.func   = None
+        self.args   = None
+        self.kwargs = None
 
     def __call__(self, func):
-        self.this_func = func
-
         @wraps(func)
         def _func(*args, **kwargs):
-            self.func[0] = self.this_func
-            self.arg[0]  = args
-            self.arg[1]  = kwargs
+            self.func   = func
+            self.args   = args
+            self.kwargs = kwargs
 
-            if self.is_first_call[0]:
-                self.is_first_call[0] = False
+            if self.is_first_call:
+                self.is_first_call = False
 
                 result = self.CONTINUE
                 try:
                     while result is self.CONTINUE:
-                        result = self.func[0](*self.arg[0], **self.arg[1])
+                        result = self.func(*self.args, **self.kwargs)
                 finally:
-                    self.is_first_call[0] = True
-                    self.arg[0] = None
-                    self.arg[1] = None
+                    self.is_first_call = True
 
                 return result
 
