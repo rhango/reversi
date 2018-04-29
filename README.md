@@ -11,6 +11,7 @@ Deep Q-Network（DQN）を用いたAIを実装
 * cupy
 * gym
 * PyQt5
+* matplotlib
 
 ## ファイル構成
 | File | 概要 |

@@ -10,6 +10,8 @@ import gym.spaces
 from gym.spaces import prng
 from engine import *
 
+from debug import *
+
 class ReversiEnv(gym.core.Env):
     def __init__(self):
         self.action_space = gym.spaces.Discrete(64)
@@ -23,8 +25,7 @@ class ReversiEnv(gym.core.Env):
 
     @TailRecursive()
     def call_step(self, action):
-        row = action // 8
-        col = action % 8
+        row, col = divmod(action, 8)
         return self._player.game.tell_where_put(row, col)
 
     def return_step(self, done, result=None):
@@ -85,6 +86,7 @@ class QFunction(chainer.Chain):
 
         super().__init__( **{ 'l{}'.format(idx): layer for idx, layer in enumerate(self._layers) } )
 
+    #@output_q_vals
     def __call__(self, x, test=False):
         h = self.l0(x)
         for layer in self._layers[1:]:
