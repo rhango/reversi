@@ -1,6 +1,5 @@
 import time
 import random
-from tail_recursive import *
 from engine import *
 
 class Human(Player):

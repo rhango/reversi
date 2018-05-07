@@ -179,6 +179,8 @@ def generate_ai(activation_func, n_layers, n_hidden_channels, decay_steps=50000,
     elif enemy == 'DQN':
         enemy_ai = ReversiAI(activation_func, n_layers, n_hidden_channels, decay_steps=decay_steps, gpu=gpu)
         enemy_gen = enemy_ai.generate_trainer
+    elif enemy == 'SLF':
+        enemy_gen = non_delay(ai.generate_player)
 
     ai_name = '{activation_func}-{n_layers}x{n_hidden_channels}'.format(
         activation_func   = activation_func,
@@ -197,18 +199,16 @@ def main():
         activation_func   = 'leaky_relu',
         n_layers          = 5,
         n_hidden_channels = 256,
-        enemy             = 'RND' )
-
-    ai_name += '-1'
+        enemy             = 'SLF' )
 
     train = Train(
         ai            = ai,
         ai_name       = ai_name,
         enemy_gen     = enemy_gen,
-        n_games       = 100000,
-        save_timings  = {10000, 20000, 50000, 100000},
+        n_games       = 200000,
+        save_timings  = {10000, 20000, 50000, 80000, 100000, 150000, 200000},
         tester_gen    = Random,
-        n_tests       = 400,
+        n_tests       = 200,
         test_interval = 1000 )
 
     train()

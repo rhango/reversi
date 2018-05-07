@@ -10,7 +10,7 @@ import gym.spaces
 from gym.spaces import prng
 from engine import *
 
-from debug import *
+#from debug import *
 
 class ReversiEnv(gym.core.Env):
     def __init__(self):
@@ -164,6 +164,6 @@ class DQNPlayer(Player):
 
     def tell_game_result(self, result):
         obs, reward = self._ai.env.return_step(True, result)
-        self._ai.agent.stop_episode()
+        #self._ai.agent.stop_episode()
 
         #print( "{} DQN {}!".format(str(self.color), str(result)) )

@@ -30,7 +30,7 @@ def output_q_vals(q_func):
                 ax.text(j, i + 0.5, "{:.2f}".format(q_vals[i, j]),
                     ha='center', va='bottom', color='w', alpha=1.0)
 
-        if True:
+        if False:
             plt.show()
         else:
             plt.savefig("img/q_vals-{}.png".format(_q_func._img_idx))
