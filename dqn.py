@@ -1,6 +1,7 @@
 import time
-import numpy as np
+from functools import wraps
 from cached_property import cached_property
+import numpy as np
 import chainer
 import chainer.functions as F
 import chainer.links as L
@@ -93,6 +94,17 @@ class QFunction(chainer.Chain):
             h = layer( self._activation_func(h) )
         return ReversiActionValue( h, x[:,0:self._n_actions] )
 
+def _with_self(func):
+    @wraps(func)
+    def _func_with_self(self, color, *args, **kwargs):
+        self.last_state  = self.last_state_self[color]
+        self.last_action = self.last_action_self[color]
+        result = func(self, *args, **kwargs)
+        self.last_state_self[color]  = self.last_state
+        self.last_action_self[color] = self.last_action
+        return result
+    return _func_with_self
+
 class ReversiDQN(chainerrl.agents.DoubleDQN):
     def __init__(self, env, activation_func, n_layers, n_hidden_channels,
         gpu, gamma, start_epsilon, end_epsilon, decay_steps):
@@ -114,6 +126,21 @@ class ReversiDQN(chainerrl.agents.DoubleDQN):
 
         super().__init__(q_func, optimizer, replay_buffer, gamma, explorer, gpu=gpu)
 
+        self.last_state_self  = { Disk.dark:None, Disk.light:None }
+        self.last_action_self = { Disk.dark:None, Disk.light:None }
+
+    @_with_self
+    def act_and_train_self(self, obs, reward):
+        return self.act_and_train(obs, reward)
+
+    @_with_self
+    def stop_episode_and_train_self(self, state, reward, done=None):
+        self.stop_episode_and_train(state, reward, done)
+
+    @_with_self
+    def stop_episode_self(self):
+        self.stop_episode()
+
 class ReversiAI:
     def __init__( self, activation_func, n_layers, n_hidden_channels,
         gamma         = 0.95,
@@ -127,11 +154,17 @@ class ReversiAI:
         self.agent = ReversiDQN( self.env, activation_func_, n_layers, n_hidden_channels,
             gpu, gamma, start_epsilon, end_epsilon, decay_steps )
 
-    def generate_trainer(self):
-        return DQNTrainer(self)
+    def generate_trainer(self, with_self=False):
+        if with_self:
+            return DQNTrainerWithSelf(self)
+        else:
+            return DQNTrainer(self)
 
-    def generate_player(self, delay=0.5):
-        return DQNPlayer(self, delay)
+    def generate_player(self, delay=0.5, with_self=False):
+        if with_self:
+            return DQNPlayerWithSelf(self, delay)
+        else:
+            return DQNPlayer(self, delay)
 
 class DQNTrainer(Player):
     def __init__(self, ai):
@@ -164,6 +197,22 @@ class DQNPlayer(Player):
 
     def tell_game_result(self, result):
         obs, reward = self._ai.env.return_step(True, result)
-        #self._ai.agent.stop_episode()
+        self._ai.agent.stop_episode()
 
         #print( "{} DQN {}!".format(str(self.color), str(result)) )
+
+class DQNTrainerWithSelf(DQNTrainer):
+    @Reversi.tail_recursive
+    def tell_your_turn(self):
+        obs, reward = self._ai.env.return_step(False)
+        action = self._ai.agent.act_and_train_self(self.color, obs, reward)
+        return self._ai.env.call_step(action)
+
+    def tell_game_result(self, result):
+        obs, reward = self._ai.env.return_step(True, result)
+        self._ai.agent.stop_episode_and_train_self(self.color, obs, reward, True)
+
+class DQNPlayerWithSelf(DQNPlayer):
+    def tell_game_result(self, result):
+        obs, reward = self._ai.env.return_step(True, result)
+        self._ai.agent.stop_episode_self(self.color)
