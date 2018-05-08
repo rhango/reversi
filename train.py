@@ -20,11 +20,6 @@ def non_delay(player_gen):
         return player_gen(delay=0)
     return _non_delay_player_gen
 
-def with_self(player_gen):
-    def _with_self_player_gen(*args, **kwargs):
-        return player_gen(*args, **kwargs, with_self=True)
-    return _with_self_player_gen
-
 class Battle:
     def __init__(self, player_generators, n_games):
         self._player_gen = player_generators
@@ -114,8 +109,7 @@ class Test(Battle):
 
 class Train(Battle):
     def __init__(self, ai, ai_name, enemy_gen, n_games, save_timings, tester_gen, n_tests, test_interval):
-        #super().__init__( (ai.generate_trainer, enemy_gen), n_games )
-        super().__init__( (with_self(ai.generate_trainer), enemy_gen), n_games )
+        super().__init__( (ai.generate_trainer, enemy_gen), n_games )
         self._ai      = ai
         self._ai_name = ai_name
         self._save_timings = save_timings
@@ -188,7 +182,7 @@ def generate_ai(activation_func, n_layers, n_hidden_channels, decay_steps=50000,
     elif enemy == 'SLF':
         enemy_gen = non_delay(ai.generate_player)
     elif enemy == 'SLFT':
-        enemy_gen = with_self(ai.generate_trainer)
+        enemy_gen = ai.generate_trainer
 
     ai_name = '{activation_func}-{n_layers}x{n_hidden_channels}'.format(
         activation_func   = activation_func,
@@ -213,7 +207,7 @@ def main():
         ai            = ai,
         ai_name       = ai_name,
         enemy_gen     = enemy_gen,
-        n_games       = 50000,
+        n_games       = 150000,
         save_timings  = {10000, 20000, 50000, 80000, 100000, 150000, 200000},
         tester_gen    = Random,
         n_tests       = 200,

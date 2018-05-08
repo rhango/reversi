@@ -4,9 +4,6 @@ class TailRecursive:
     def __init__(self):
         self.CONTINUE = object()
         self.is_first_call = True
-        self.func   = None
-        self.args   = None
-        self.kwargs = None
 
     def __call__(self, func):
         @wraps(func)
