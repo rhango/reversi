@@ -1,6 +1,5 @@
 import sys
 import json
-import time
 import queue
 import threading
 from PyQt5.QtCore import *
@@ -177,8 +176,8 @@ class PlayerChoice(QComboBox):
 
     def _setup_style(self):
         self.addItem(  "Human", self._app.generate_human )
-        self.addItem( "Random", Random )
-        self.addItem(    "DQN", self._app.ai.generate_player )
+        self.addItem( "Random", delay(Random) )
+        self.addItem(    "DQN", delay(self._app.ai.generate_player) )
 
     def get_player_type(self):
         return self.itemData(self.currentIndex())

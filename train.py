@@ -15,11 +15,6 @@ class Timer:
     def get_time(self):
         return time.time() - self._start_time
 
-def non_delay(player_gen):
-    def _non_delay_player_gen():
-        return player_gen(delay=0)
-    return _non_delay_player_gen
-
 class Battle:
     def __init__(self, player_generators, n_games):
         self._player_gen = player_generators
@@ -56,16 +51,16 @@ class Test(Battle):
     fieldnames = [ "N Games", "Dark WR", "Light WR", "Total WR", "Time" ]
 
     def __init__(self, ai, tester_gen, n_tests, timer=None, file_name=None):
-        super().__init__( (non_delay(ai.generate_player), non_delay(tester_gen)), n_tests )
+        super().__init__( (ai.generate_player, tester_gen), n_tests )
         self._n_tests = n_tests
         self._timer   = timer
 
-        self._data = { fieldname: None for fieldname in self.fieldnames }
+        self._data = { fieldname: None for fieldname in Test.fieldnames }
 
         if file_name is not None:
             self._need_export = True
             self._file   = open('data/{}.csv'.format(file_name), 'w')
-            self._writer = csv.DictWriter(self._file, fieldnames=self.fieldnames)
+            self._writer = csv.DictWriter(self._file, fieldnames=Test.fieldnames)
             self._writer.writeheader()
         else:
             self._need_export = False
@@ -171,16 +166,24 @@ class OutputController:
             time    = "{:>3}:{:0>2}:{:0>2}".format(hour, minute, second)
         ))
 
-def generate_ai(activation_func, n_layers, n_hidden_channels, decay_steps=50000, enemy='RND', gpu=0):
-    ai = ReversiAI(activation_func, n_layers, n_hidden_channels, decay_steps=decay_steps, gpu=gpu)
+def generate_ai(activation_func, n_layers, n_hidden_channels,
+        gamma         = 0.95,
+        start_epsilon = 1.0,
+        end_epsilon   = 0.3,
+        decay_steps   = 50000,
+        enemy         = 'RND',
+        gpu           = 0 ):
+
+    ai = ReversiAI(activation_func, n_layers, n_hidden_channels, gamma=gamma,
+        start_epsilon=start_epsilon, end_epsilon=end_epsilon, decay_steps=decay_steps, gpu=gpu)
 
     if enemy == 'RND':
-        enemy_gen = non_delay(Random)
+        enemy_gen = Random
     elif enemy == 'DQN':
         enemy_ai = ReversiAI(activation_func, n_layers, n_hidden_channels, decay_steps=decay_steps, gpu=gpu)
         enemy_gen = enemy_ai.generate_trainer
-    elif enemy == 'SLF':
-        enemy_gen = non_delay(ai.generate_player)
+    elif enemy == 'SLFP':
+        enemy_gen = ai.generate_player
     elif enemy == 'SLFT':
         enemy_gen = ai.generate_trainer
 
@@ -189,8 +192,8 @@ def generate_ai(activation_func, n_layers, n_hidden_channels, decay_steps=50000,
         n_layers          = n_layers,
         n_hidden_channels = n_hidden_channels )
 
-    if decay_steps != 50000:
-        ai_name += '-d' + decay_steps
+    #if decay_steps != 50000:
+    #    ai_name += '-d' + str(decay_steps)
 
     ai_name += '-vs' + enemy
 
@@ -201,6 +204,10 @@ def main():
         activation_func   = 'leaky_relu',
         n_layers          = 5,
         n_hidden_channels = 256,
+        gamma             = 0.95,
+        start_epsilon     = 1.0,
+        end_epsilon       = 0.3,
+        decay_steps       = 50000,
         enemy             = 'SLFT' )
 
     train = Train(

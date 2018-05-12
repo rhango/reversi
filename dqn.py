@@ -1,4 +1,3 @@
-import time
 from functools import wraps
 from cached_property import cached_property
 import numpy as np
@@ -22,10 +21,10 @@ class ReversiEnv(gym.core.Env):
             dtype = np.float32 )
 
     def reset(self, game):
+        self.call_step = game.tail_recursive(self._call_step)
         self._game = game
 
-    @Reversi.tail_recursive
-    def call_step(self, action):
+    def _call_step(self, action):
         row, col = divmod(action, 8)
         return self._game.tell_where_put(row, col)
 
@@ -156,11 +155,11 @@ class ReversiAI:
         self.agent = ReversiDQN( self.env, activation_func_, n_layers, n_hidden_channels,
             gpu, gamma, start_epsilon, end_epsilon, decay_steps )
 
-    def generate_trainer(self, with_self=False):
+    def generate_trainer(self):
         return DQNTrainer(self)
 
-    def generate_player(self, delay=0.5, with_self=False):
-        return DQNPlayer(self, delay)
+    def generate_player(self):
+        return DQNPlayer(self)
 
 class DQNTrainer(Player):
     def __init__(self, ai):
@@ -170,7 +169,6 @@ class DQNTrainer(Player):
         self._ai.env.reset(game)
         return super().setup_player(game, color)
 
-    @Reversi.tail_recursive
     def tell_your_turn(self):
         obs, reward = self._ai.env.return_step(self.color, False)
         action = self._ai.agent.act_and_train(self.color, obs, reward)
@@ -181,18 +179,14 @@ class DQNTrainer(Player):
         self._ai.agent.stop_episode_and_train(self.color, obs, reward, True)
 
 class DQNPlayer(Player):
-    def __init__(self, ai, delay):
+    def __init__(self, ai):
         self._ai = ai
-        self._delay = delay
 
     def setup_player(self, game, color):
         self._ai.env.reset(game)
         return super().setup_player(game, color)
 
-    @Reversi.tail_recursive
     def tell_your_turn(self):
-        time.sleep(self._delay)
-
         obs, reward = self._ai.env.return_step(self.color, False)
         action = self._ai.agent.act(obs)
         return self._ai.env.call_step(action)

@@ -1,6 +1,6 @@
 {
     "DQN": {
-        "target": "leaky_relu-5x256-vsDQN-100000",
+        "target": "leaky_relu-5x256-vsSLFP-afSLFT-100000",
         "list": {
             "DQN10": {
                 "activation_func"   : "leaky_relu",
@@ -23,6 +23,11 @@
                 "n_hidden_channels" : 256
             },
             "leaky_relu-5x256-vsDQN-100000": {
+                "activation_func"   : "leaky_relu",
+                "n_layers"          : 5,
+                "n_hidden_channels" : 256
+            },
+            "leaky_relu-5x256-vsSLFP-afSLFT-100000": {
                 "activation_func"   : "leaky_relu",
                 "n_layers"          : 5,
                 "n_hidden_channels" : 256

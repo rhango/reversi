@@ -32,11 +32,8 @@ class Result(IntEnum):
             return "Draw"
 
 class Player(metaclass=ABCMeta):
-    @abstractmethod
-    def __init__(self):
-        pass
-
     def setup_player(self, game, color):
+        self.tell_your_turn = game.tail_recursive(self.tell_your_turn)
         self.game  = game
         self.color = color
         return self
@@ -91,7 +88,7 @@ class Board:
         if self.array[row][col] is not Disk.null:
             return False
 
-        return any(self._can_reverse_line((row,col), dir) for dir in self._directions)
+        return any(self._can_reverse_line((row,col), dir) for dir in Board._directions)
 
     def update_possible_place(self):
         self.possible_place = [ [
@@ -117,7 +114,7 @@ class Board:
     def put_disk(self, row, col):
         self.array[row][col] = self.current_turn
 
-        for dir in self._directions:
+        for dir in Board._directions:
             self._reverse_line((row,col), dir)
 
     def get_game_result(self):
@@ -131,13 +128,20 @@ class Board:
             return { Disk.dark: Result.draw, Disk.light: Result.draw }
 
 class Reversi:
-    tail_recursive = TailRecursive()
+    def __init__(self, dark_player, light_player, render=None, board=None):
+        self.tail_recursive = TailRecursive()
+        self.tell_where_put = self.tail_recursive(self.tell_where_put)
+        self._process_turn  = self.tail_recursive(self._process_turn)
 
-    def __init__(self, dark_player, light_player, render=None):
         self.player = {
             Disk.dark : dark_player.setup_player(  self, Disk.dark  ),
             Disk.light: light_player.setup_player( self, Disk.light ) }
-        self.board = Board()
+
+        if board is None:
+            self.board = Board()
+        else:
+            self.board = board
+
         self._prev_player_passed = False
         self.need_game_stop = False
         self._render = render
@@ -145,14 +149,12 @@ class Reversi:
     def start_game(self):
         return self._process_turn()
 
-    @tail_recursive
     def tell_where_put(self, row, col):
         assert self.board.possible_place[row][col], "Can't put disk on ({}, {})".format(row, col)
         self.board.put_disk(row, col)
         self.board.current_turn = self.board.current_turn.reverse()
         return self._process_turn()
 
-    @tail_recursive
     def _process_turn(self):
         if self.need_game_stop:
             return None

@@ -2,6 +2,19 @@ import time
 import random
 from engine import *
 
+def delay(func):
+    def _func():
+        player = func()
+        player.tell_your_turn = _delay_func(player.tell_your_turn)
+        return player
+    return _func
+
+def _delay_func(func):
+    def _func():
+        time.sleep(0.5)
+        return func()
+    return _func
+
 class Human(Player):
     def __init__(self, tell_win_or_lose):
         self._tell_win_or_lose = tell_win_or_lose
@@ -21,13 +34,7 @@ class Human(Player):
         self._tell_win_or_lose(self.color, result)
 
 class Random(Player):
-    def __init__(self, delay=0.5):
-        self._delay = delay
-
-    @Reversi.tail_recursive
     def tell_your_turn(self):
-        time.sleep(self._delay)
-
         place_list = [
             (row, col)
             for row, possible_row in enumerate(self.game.board.possible_place)
