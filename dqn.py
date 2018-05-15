@@ -28,7 +28,7 @@ class ReversiEnv(gym.core.Env):
         row, col = divmod(action, 8)
         return self._game.tell_where_put(row, col)
 
-    def return_step(self, color, done, result=None):
+    def return_step(self, done, result=None):
         if done:
             if result is Result.win:
                 reward = 1
@@ -39,17 +39,20 @@ class ReversiEnv(gym.core.Env):
         else:
             reward = 0
 
-        return self._get_observation(color), reward
+        self._possible_place, obs = ReversiEnv.get_observation(self._game.board)
+        return obs, reward
 
-    def _get_observation(self, color):
-        self._possible_place = np.array(self._game.board.possible_place, dtype=np.bool).ravel()
-        board = np.array( [
+    @staticmethod
+    def get_observation(board):
+        possible_place = np.array(board.possible_place, dtype=np.bool).ravel()
+        obs = np.array( [
             elm
-            for array_row in self._game.board.array[0:8]
+            for array_row in board.array[0:8]
                 for disk in array_row[0:8]
-                    for elm in ReversiEnv._disk_to_vector(color, disk) ], dtype=np.float32 )
+                    for elm in ReversiEnv._disk_to_vector(board.current_turn, disk)
+        ], dtype=np.float32 )
 
-        return np.hstack( (self._possible_place.astype(np.float32), board) )
+        return possible_place, np.hstack( (possible_place.astype(np.float32), obs) )
 
     @staticmethod
     def _disk_to_vector(color, disk):
@@ -155,6 +158,20 @@ class ReversiAI:
         self.agent = ReversiDQN( self.env, activation_func_, n_layers, n_hidden_channels,
             gpu, gamma, start_epsilon, end_epsilon, decay_steps )
 
+    def get_q_vals(self, color, board):
+        _, obs = ReversiEnv.get_observation(board)
+
+        with chainer.using_config('train', False):
+            with chainer.no_backprop_mode():
+                action_value = self.agent.model(np.asarray([obs]))
+                q = float(action_value.max.data)
+                action = action_value.greedy_actions.data[0]
+
+        if board.current_turn is color:
+            return divmod(action, 8), q
+        else:
+            return divmod(action, 8), -q
+
     def generate_trainer(self):
         return DQNTrainer(self)
 
@@ -170,12 +187,12 @@ class DQNTrainer(Player):
         return super().setup_player(game, color)
 
     def tell_your_turn(self):
-        obs, reward = self._ai.env.return_step(self.color, False)
+        obs, reward = self._ai.env.return_step(False)
         action = self._ai.agent.act_and_train(self.color, obs, reward)
         return self._ai.env.call_step(action)
 
     def tell_game_result(self, result):
-        obs, reward = self._ai.env.return_step(self.color, True, result)
+        obs, reward = self._ai.env.return_step(True, result)
         self._ai.agent.stop_episode_and_train(self.color, obs, reward, True)
 
 class DQNPlayer(Player):
@@ -187,12 +204,12 @@ class DQNPlayer(Player):
         return super().setup_player(game, color)
 
     def tell_your_turn(self):
-        obs, reward = self._ai.env.return_step(self.color, False)
+        obs, reward = self._ai.env.return_step(False)
         action = self._ai.agent.act(obs)
         return self._ai.env.call_step(action)
 
     def tell_game_result(self, result):
-        obs, reward = self._ai.env.return_step(self.color, True, result)
+        obs, reward = self._ai.env.return_step(True, result)
         self._ai.agent.stop_episode_(self.color)
 
         #print( "{} DQN {}!".format(str(self.color), str(result)) )

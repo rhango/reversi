@@ -15,6 +15,19 @@ def _delay_func(func):
         return func()
     return _func
 
+def get_possible_place_list(possible_place):
+    return [ (row, col)
+        for row, possible_row in enumerate(possible_place)
+            for col, possible in enumerate(possible_row)
+                if possible ]
+
+class DummyPlayer(Player):
+    def tell_your_turn(self):
+        pass
+
+    def tell_game_result(eslf, result):
+        pass
+
 class Human(Player):
     def __init__(self, tell_win_or_lose):
         self._tell_win_or_lose = tell_win_or_lose
@@ -35,13 +48,8 @@ class Human(Player):
 
 class Random(Player):
     def tell_your_turn(self):
-        place_list = [
-            (row, col)
-            for row, possible_row in enumerate(self.game.board.possible_place)
-                for col, possible in enumerate(possible_row)
-                    if possible ]
-
-        place = random.choice(place_list)
+        possible_list = get_possible_place_list(self.game.board.possible_place)
+        place = random.choice(possible_list)
         return self.game.tell_where_put(*place)
 
     def tell_game_result(self, result):
