@@ -176,10 +176,10 @@ class PlayerChoice(QComboBox):
         self._app = app
 
     def _setup_style(self):
-        self.addItem(     "Human", self._app.generate_human )
-        self.addItem(    "Random", delay(Random) )
-        self.addItem(       "DQN", delay(self._app.ai.generate_player) )
-        self.addItem( "MinMaxDQN", MinMaxPlayer.generate_player(self._app.ai.get_q_vals) )
+        self.addItem(        "Human", self._app.generate_human )
+        self.addItem(       "Random", delay(Random) )
+        self.addItem(          "DQN", delay(self._app.ai.generate_player) )
+        self.addItem( "AlphaBetaDQN", AlphaBetaPlayer.generate_player(3, self._app.ai.get_q_vals) )
 
     def get_player_type(self):
         return self.itemData(self.currentIndex())
