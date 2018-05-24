@@ -122,6 +122,16 @@ class ReversiDQN(chainerrl.agents.DoubleDQN):
         self.last_action_of = { Disk.dark:None, Disk.light:None }
 
     @staticmethod
+    def _dont_update_avg_q(func):
+        @wraps(func)
+        def _func(self, *args, **kwargs):
+            average_q = self.average_q
+            result = func(self, *args, **kwargs)
+            self.average_q = average_q
+            return result
+        return _func
+
+    @staticmethod
     def _distinguish_player(func):
         @wraps(func)
         def _func(self, color, *args, **kwargs):
@@ -132,6 +142,10 @@ class ReversiDQN(chainerrl.agents.DoubleDQN):
             self.last_action_of[color] = self.last_action
             return result
         return _func
+
+    @_dont_update_avg_q.__func__
+    def act(self, obs):
+        return super().act(obs)
 
     @_distinguish_player.__func__
     def act_and_train(self, obs, reward):

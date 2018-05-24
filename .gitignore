@@ -4,9 +4,9 @@ __pycache__
 
 DQN/*
 !DQN/.gitkeep
-data/*
-!data/.gitkeep
 
+data
+log
 img
 profile
 backup

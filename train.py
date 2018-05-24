@@ -1,4 +1,6 @@
 import sys
+import os
+import shutil
 import csv
 import time
 from engine import *
@@ -15,122 +17,162 @@ class Timer:
     def get_time(self):
         return time.time() - self._start_time
 
-class Battle:
-    def __init__(self, player_generators, n_games):
-        self._player_gen = player_generators
-        self._n_games    = n_games
-
-    def func_before_battle(self):
-        pass
-
-    def func_before_game(self, game_idx):
-        pass
+class Test:
+    def __init__(self, tester_gen, enemy_gen, n_tests):
+        self._tester_gen = tester_gen
+        self._enemy_gen  = enemy_gen
+        self._n_tests    = n_tests
 
     def __call__(self):
-        self.func_before_battle()
+        n_wins = { Disk.dark: 0, Disk.light: 0 }
 
-        for game_idx in range(1, self._n_games + 1):
-            self.func_before_game(game_idx)
+        for test_idx in range(1, self._n_tests + 1):
+            players = ( self._tester_gen(), self._enemy_gen() )
 
             game = Reversi(
-                self._player_gen[ (game_idx + 1) % 2 ](),
-                self._player_gen[  game_idx      % 2 ]() )
+                players[(test_idx + 1) % 2],
+                players[ test_idx      % 2] )
             result = game.start_game()
 
-            self.func_after_game(game_idx, result)
+            if result[players[0].color] == Result.win:
+                n_wins[players[0].color] += 1
 
-        self.func_after_battle()
+        data = {}
+        data["Dark_WR" ] = n_wins[Disk.dark ] / (self._n_tests / 2)
+        data["Light_WR"] = n_wins[Disk.light] / (self._n_tests / 2)
+        data["Total_WR"] = sum(n_wins.values()) / self._n_tests
+        return data
 
-    def func_after_game(self, game_idx, result):
-        pass
+class Train:
+    status_log_fields = ("n_games", "dark_wr", "light_wr", "total_wr", "average_q", "average_loss")
+    test_log_fields   = ("N_Games", "Dark_WR", "Light_WR", "Total_WR", "Time")
 
-    def func_after_battle(self):
-        pass
-
-class Test(Battle):
-    fieldnames = [ "N Games", "Dark WR", "Light WR", "Total WR", "Time" ]
-
-    def __init__(self, ai, tester_gen, n_tests, timer=None, file_name=None):
-        super().__init__( (ai.generate_player, tester_gen), n_tests )
-        self._n_tests = n_tests
-        self._timer   = timer
-
-        self._data = { fieldname: None for fieldname in Test.fieldnames }
-
-        if file_name is not None:
-            self._need_export = True
-            self._file   = open('data/{}.csv'.format(file_name), 'w')
-            self._writer = csv.DictWriter(self._file, fieldnames=Test.fieldnames)
-            self._writer.writeheader()
+    def __init__(self, ai, enemy_gen, n_games, tester_gen, n_tests, test_log_interval,
+            status_log_interval, ai_name, need_save=lambda game_idx, log: False, append_output=False):
+        if isinstance(ai, (tuple, list)):
+            self._ai = ai[0]
+            self._ai_list = ai
         else:
-            self._need_export = False
+            self._ai = ai
+            self._ai_list = None
 
-    def func_before_battle(self):
-        self._wr = { Disk.dark: 0, Disk.light: 0 }
+        self._trainer_gen = self._ai.generate_trainer
+        self._enemy_gen = enemy_gen
+        self._n_games = n_games
+        self._test = Test(self._ai.generate_player, tester_gen, n_tests)
+        self._test_log_interval = test_log_interval
+        self._status_log_interval = status_log_interval
+        self._save_dir = "DQN/" + ai_name + "/"
+        self._log_dir = "log/" + ai_name + "/"
+        self._need_save = need_save
 
-    def __call__(self, game_idx=None):
-        self._game_idx = game_idx
-        super().__call__()
-        return self._data
+        if not append_output:
+            Train.confirm_overwrite(self._log_dir)
+            Train.confirm_overwrite(self._save_dir)
+        os.makedirs(self._log_dir, exist_ok=True)
 
-    def func_after_game(self, test_idx, result):
-        if (test_idx + 1) % 2 == 0:
-            ai_color = Disk.dark
-        else:
-            ai_color = Disk.light
-
-        if result[ai_color] is Result.win:
-            self._wr[ai_color] += 1
-
-    def func_after_battle(self):
-        if self._game_idx is not None:
-            self._data["N Games"] = self._game_idx
-        else:
-            self._data["N Games"] = "--"
-        for color in (Disk.dark, Disk.light):
-            self._data[ "{} WR".format(str(color)) ] = self._wr[color] / (self._n_tests/2)
-        self._data["Total WR"] = sum(self._wr.values()) / self._n_tests
-        if self._timer is not None:
-            self._data["Time"] = self._timer.get_time()
-        else:
-            self._data["Time"] = "--"
-
-        if self._need_export:
-            self._writer.writerow(self._data)
-
-    def __del__(self):
-        if self._need_export:
-            self._file.close()
-
-class Train(Battle):
-    def __init__(self, ai, ai_name, enemy_gen, n_games, save_timings, tester_gen, n_tests, test_interval):
-        super().__init__( (ai.generate_trainer, enemy_gen), n_games )
-        self._ai      = ai
-        self._ai_name = ai_name
-        self._save_timings = save_timings
-
-        self._timer = Timer()
-        self._test  = Test(self._ai, tester_gen, n_tests, self._timer, self._ai_name)
-        self._test_interval = test_interval
-
+        self._timer  = Timer()
         self._outctl = OutputController()
 
-    def func_before_battle(self):
+    @staticmethod
+    def confirm_overwrite(dir):
+        if os.path.isdir(dir) and os.listdir(dir):
+            overwrite = input(dir + " already exists. Overwrite it? (y/n): ") == 'y'
+            if overwrite:
+                shutil.rmtree(dir)
+            else:
+                sys.exit()
+
+    def __call__(self):
         self._timer.start()
-        result = self._test(game_idx=0)
-        self._outctl.output_test_result(result)
+        test_log = self.log_test(self._test, 0, "test")
+        self._outctl.output_test_result(test_log)
+        res_log = { color: { Result.win: 0, Result.lose: 0, Result.draw: 0 }
+            for color in (Disk.dark, Disk.light) }
 
-    def func_after_game(self, game_idx, result):
-        self._outctl.update_game_idx(game_idx)
-        if game_idx % self._test_interval == 0:
-            result = self._test(game_idx)
-            self._outctl.output_test_result(result)
+        for game_idx in range(1, self._n_games + 1):
+            self._outctl.update_game_idx(game_idx)
+            players = ( self._trainer_gen(), self._enemy_gen() )
 
-        if game_idx in self._save_timings:
-            agent_name = '{ai_name}-{game_idx}'.format(
-                ai_name  = self._ai_name,
-                game_idx = game_idx )
-            self._ai.agent.save( 'DQN/{}'.format(agent_name) )
+            game = Reversi(
+                players[(game_idx + 1) % 2],
+                players[ game_idx      % 2] )
+            result = game.start_game()
+
+            color = players[0].color
+            res = result[color]
+            if res == Result.win:
+                res_log[color][Result.win ] += 1
+            elif res == Result.lose:
+                res_log[color][Result.lose] += 1
+            else:
+                res_log[color][Result.draw] += 1
+
+            if game_idx % self._status_log_interval == 0:
+                self.log_status_all_ai(game_idx, res_log)
+                res_log = { color: { Result.win: 0, Result.lose: 0, Result.draw: 0 }
+                    for color in (Disk.dark, Disk.light) }
+
+            if game_idx % self._test_log_interval == 0:
+                test_log = self.log_test(self._test, game_idx, "test")
+                self._outctl.output_test_result(test_log)
+
+            if self._need_save(game_idx, test_log):
+                if self._ai_list is None:
+                    self._ai.agent.save(self._save_dir + str(game_idx))
+                else:
+                    for ai_idx, ai in enumerate(self._ai_list):
+                        ai.agent.save(self._save_dir + str(game_idx) + "-" + str(ai_idx))
+
+    def log_status_all_ai(self, game_idx, result):
+        if self._ai_list is None:
+            res = { color: result[color][Result.win] / sum(result[color].values())
+                for color in (Disk.dark, Disk.light) }
+            self.log_status(self._ai, game_idx, res, "status")
+        else:
+            res = (
+                { color: result[color][Result.win] / sum(result[color].values())
+                    for color in (Disk.dark, Disk.light) },
+                { color: result[color.reverse()][Result.lose] / sum(result[color.reverse()].values())
+                    for color in (Disk.dark, Disk.light) } )
+            for i in range(2):
+                self.log_status(self._ai_list[i], game_idx, res[i], "status-" + str(i))
+
+    def log_status(self, ai, game_idx, win_rate, file_name):
+        file_path = self._log_dir + file_name + ".csv"
+
+        if not os.path.isfile(file_path):
+            with open(file_path, 'x') as file:
+                writer = csv.DictWriter(file, Train.status_log_fields)
+                writer.writeheader()
+
+        with open(file_path, 'a') as file:
+            writer = csv.DictWriter(file, Train.status_log_fields)
+            log = dict(ai.agent.get_statistics())
+            log["n_games"]  = game_idx
+            log["dark_wr"]  = win_rate[Disk.dark]
+            log["light_wr"] = win_rate[Disk.light]
+            log["total_wr"] = sum(win_rate.values()) / 2
+            writer.writerow(log)
+
+        return log
+
+    def log_test(self, test, game_idx, file_name):
+        file_path = self._log_dir + file_name + ".csv"
+
+        if not os.path.isfile(file_path):
+            with open(file_path, 'x') as file:
+                writer = csv.DictWriter(file, Train.test_log_fields)
+                writer.writeheader()
+
+        with open(file_path, 'a') as file:
+            writer = csv.DictWriter(file, Train.test_log_fields)
+            log = test()
+            log["N_Games"] = game_idx
+            log["Time"] = self._timer.get_time()
+            writer.writerow(log)
+
+        return log
 
 class OutputController:
     def __init__(self):
@@ -138,7 +180,7 @@ class OutputController:
 
         sys.stderr.write("\n")
         sys.stderr.flush()
-        print("    ".join(("{:<9}".format(label) for label in Test.fieldnames)))
+        print("    ".join(("{:<9}".format(label) for label in Train.test_log_fields)))
 
     def update_game_idx(self, game_idx):
         if not self._idx_updating:
@@ -159,12 +201,11 @@ class OutputController:
         hour, minute = divmod(time, 60)
 
         print("{n_games:>9}    {dark:>9.2%}    {light:>9.2%}    {total:>9.2%}    {time:9}".format(
-            n_games = result["N Games"],
-            dark    = result["Dark WR"],
-            light   = result["Light WR"],
-            total   = result["Total WR"],
-            time    = "{:>3}:{:0>2}:{:0>2}".format(hour, minute, second)
-        ))
+            n_games = result["N_Games"],
+            dark    = result["Dark_WR"],
+            light   = result["Light_WR"],
+            total   = result["Total_WR"],
+            time    = "{:>3}:{:0>2}:{:0>2}".format(hour, minute, second) ))
 
 def generate_ai(activation_func, n_layers, n_hidden_channels,
         gamma         = 0.95,
@@ -182,6 +223,7 @@ def generate_ai(activation_func, n_layers, n_hidden_channels,
     elif enemy == 'DQN':
         enemy_ai = ReversiAI(activation_func, n_layers, n_hidden_channels, decay_steps=decay_steps, gpu=gpu)
         enemy_gen = enemy_ai.generate_trainer
+        ai = ( ai, enemy_ai )
     elif enemy == 'SLFP':
         enemy_gen = ai.generate_player
     elif enemy == 'SLFT':
@@ -191,9 +233,6 @@ def generate_ai(activation_func, n_layers, n_hidden_channels,
         activation_func   = activation_func,
         n_layers          = n_layers,
         n_hidden_channels = n_hidden_channels )
-
-    #if decay_steps != 50000:
-    #    ai_name += '-d' + str(decay_steps)
 
     ai_name += '-vs' + enemy
 
@@ -211,14 +250,15 @@ def main():
         enemy             = 'SLFT' )
 
     train = Train(
-        ai            = ai,
-        ai_name       = ai_name,
-        enemy_gen     = enemy_gen,
-        n_games       = 150000,
-        save_timings  = {10000, 20000, 50000, 80000, 100000, 150000, 200000},
-        tester_gen    = Random,
-        n_tests       = 200,
-        test_interval = 1000 )
+        ai                  = ai,
+        enemy_gen           = enemy_gen,
+        n_games             = 50000,
+        tester_gen          = Random,
+        n_tests             = 200,
+        test_log_interval   = 1000,
+        status_log_interval = 100,
+        ai_name             = ai_name,
+        need_save = lambda i, log: i == log["N_Games"] and log["Total_WR"] >= 0.9 )
 
     train()
 
