@@ -3,6 +3,7 @@ import os
 import shutil
 import csv
 import time
+from chainerrl.replay_buffer import ReplayBuffer
 from engine import *
 from players import *
 from dqn import *
@@ -241,8 +242,8 @@ def generate_ai(activation_func, n_layers, n_hidden_channels,
 def main():
     ai, ai_name, enemy_gen = generate_ai(
         activation_func   = 'leaky_relu',
-        n_layers          = 5,
-        n_hidden_channels = 256,
+        n_layers          = 3,
+        n_hidden_channels = 64,
         gamma             = 0.95,
         start_epsilon     = 1.0,
         end_epsilon       = 0.3,
@@ -252,15 +253,52 @@ def main():
     train = Train(
         ai                  = ai,
         enemy_gen           = enemy_gen,
-        n_games             = 50000,
+        n_games             = 100000,
         tester_gen          = Random,
         n_tests             = 200,
         test_log_interval   = 1000,
         status_log_interval = 100,
         ai_name             = ai_name,
-        need_save = lambda i, log: i == log["N_Games"] and log["Total_WR"] >= 0.9 )
+        need_save = lambda i, log: i in (10000, 30000, 50000, 80000, 100000) )
 
     train()
+
+def main2():
+    activation_func   = 'leaky_relu'
+    n_layers          = 5
+    n_hidden_channels = 256
+    epsilon           = 0.3
+    ai_dir            = "leaky_relu-5x256-vsBST-test"
+    best_ai_name      = "leaky_relu-5x256-vsSLFT-test/20000"
+
+    ai = ReversiAI(activation_func, n_layers, n_hidden_channels,
+            start_epsilon=epsilon, end_epsilon=epsilon, decay_steps=1, gpu=0)
+    enemy_ai = ReversiAI(activation_func, n_layers, n_hidden_channels, gpu=0)
+
+    ai.agent.load("DQN/" + best_ai_name)
+    best_result = Test(ai.generate_player, Random, 400)()["Total_WR"]
+
+    for i in range(10):
+        enemy_ai.agent.load("DQN/" + best_ai_name)
+        count = 0
+        while True:
+            name = "{}/{}-{}".format(ai_dir, i, count)
+            ai.agent.load("DQN/" + best_ai_name)
+            ai.agent.replay_buffer = ReplayBuffer(capacity=10**6)
+            ai.agent.replay_updater.replay_buffer = ai.agent.replay_buffer
+
+            Train(ai, enemy_ai.generate_player, 10000, Random, 200, 1000, 100, name)()
+            ai.agent.save("DQN/" + name)
+
+            result = Test(ai.generate_player, Random, 400)()["Total_WR"]
+            if result > best_result:
+                print("Test Result: {} > {}".format(result, best_result))
+                best_result = result
+                best_ai_name = name
+                break
+            else:
+                print("Test Result: {} < {}".format(result, best_result))
+            count += 1
 
 if __name__ == '__main__':
     main()
