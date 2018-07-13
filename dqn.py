@@ -79,9 +79,10 @@ class ReversiActionValue(chainerrl.action_value.DiscreteActionValue):
         return chainer.Variable( q_val.argmax(axis=1).astype(np.int32) )
 
 class QFunction(chainer.Chain):
-    def __init__(self, activation_func, n_layers, obs_size, n_hidden_channels, n_actions):
+    def __init__(self, activation_func, n_layers, obs_size, n_hidden_channels, n_actions, dropout_ratio):
         self._activation_func = activation_func
         self._n_actions       = n_actions
+        self._dropout_ratio   = dropout_ratio
 
         self._layers = [ L.Linear(obs_size, n_hidden_channels) ]
         for idx in range(1, n_layers-1):
@@ -94,16 +95,16 @@ class QFunction(chainer.Chain):
     def __call__(self, x, test=False):
         h = self.l0(x)
         for layer in self._layers[1:]:
-            h = layer( self._activation_func(h) )
+            h = layer( F.dropout(self._activation_func(h), ratio=self._dropout_ratio) )
         return ReversiActionValue( h, x[:,0:self._n_actions] )
 
 class ReversiDQN(chainerrl.agents.DoubleDQN):
-    def __init__(self, env, activation_func, n_layers, n_hidden_channels,
+    def __init__(self, env, activation_func, n_layers, n_hidden_channels, dropout_ratio,
         gpu, gamma, start_epsilon, end_epsilon, decay_steps):
 
         obs_size  = env.observation_space.shape[0]
         n_actions = env.action_space.n
-        q_func    = QFunction(activation_func, n_layers, obs_size, n_hidden_channels, n_actions)
+        q_func    = QFunction(activation_func, n_layers, obs_size, n_hidden_channels, n_actions, dropout_ratio)
 
         optimizer = chainer.optimizers.Adam()
         optimizer.setup(q_func)
@@ -161,6 +162,7 @@ class ReversiDQN(chainerrl.agents.DoubleDQN):
 
 class ReversiAI:
     def __init__( self, activation_func, n_layers, n_hidden_channels,
+        dropout_ratio = 0.0,
         gamma         = 0.95,
         start_epsilon = 1.0,
         end_epsilon   = 0.3,
@@ -169,7 +171,7 @@ class ReversiAI:
 
         self.env = ReversiEnv()
         activation_func_ = eval('F.{}'.format(activation_func))
-        self.agent = ReversiDQN( self.env, activation_func_, n_layers, n_hidden_channels,
+        self.agent = ReversiDQN( self.env, activation_func_, n_layers, n_hidden_channels, dropout_ratio,
             gpu, gamma, start_epsilon, end_epsilon, decay_steps )
 
     def get_q_vals(self, color, board):

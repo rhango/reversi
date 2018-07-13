@@ -209,6 +209,7 @@ class OutputController:
             time    = "{:>3}:{:0>2}:{:0>2}".format(hour, minute, second) ))
 
 def generate_ai(activation_func, n_layers, n_hidden_channels,
+        dropout_ratio = 0.0,
         gamma         = 0.95,
         start_epsilon = 1.0,
         end_epsilon   = 0.3,
@@ -216,8 +217,8 @@ def generate_ai(activation_func, n_layers, n_hidden_channels,
         enemy         = 'RND',
         gpu           = 0 ):
 
-    ai = ReversiAI(activation_func, n_layers, n_hidden_channels, gamma=gamma,
-        start_epsilon=start_epsilon, end_epsilon=end_epsilon, decay_steps=decay_steps, gpu=gpu)
+    ai = ReversiAI(activation_func, n_layers, n_hidden_channels, dropout_ratio=dropout_ratio,
+        gamma=gamma, start_epsilon=start_epsilon, end_epsilon=end_epsilon, decay_steps=decay_steps, gpu=gpu)
 
     if enemy == 'RND':
         enemy_gen = Random
@@ -235,6 +236,9 @@ def generate_ai(activation_func, n_layers, n_hidden_channels,
         n_layers          = n_layers,
         n_hidden_channels = n_hidden_channels )
 
+    if dropout_ratio > 0.0:
+        ai_name += '-{}dp'.format(dropout_ratio)
+
     ai_name += '-vs' + enemy
 
     return ai, ai_name, enemy_gen
@@ -242,8 +246,9 @@ def generate_ai(activation_func, n_layers, n_hidden_channels,
 def main():
     ai, ai_name, enemy_gen = generate_ai(
         activation_func   = 'leaky_relu',
-        n_layers          = 3,
-        n_hidden_channels = 64,
+        n_layers          = 2,
+        n_hidden_channels = 24,
+        dropout_ratio     = 0,
         gamma             = 0.95,
         start_epsilon     = 1.0,
         end_epsilon       = 0.3,
@@ -255,25 +260,30 @@ def main():
         enemy_gen           = enemy_gen,
         n_games             = 100000,
         tester_gen          = Random,
-        n_tests             = 200,
+        n_tests             = 400,
         test_log_interval   = 1000,
         status_log_interval = 100,
         ai_name             = ai_name,
-        need_save = lambda i, log: i in (10000, 30000, 50000, 80000, 100000) )
+        need_save = lambda i, log: i==log["N_Games"] and log["Total_WR"]>=0.96 )
 
     train()
 
 def main2():
     activation_func   = 'leaky_relu'
     n_layers          = 5
-    n_hidden_channels = 256
+    n_hidden_channels = 24
+    dropout_ratio     = 0
     epsilon           = 0.3
-    ai_dir            = "leaky_relu-5x256-vsBST-test"
-    best_ai_name      = "leaky_relu-5x256-vsSLFT-test/20000"
+    ai_dir            = "leaky_relu-5x24-vsBST"
+    best_ai_name      = None
 
-    ai = ReversiAI(activation_func, n_layers, n_hidden_channels,
+    ai = ReversiAI(activation_func, n_layers, n_hidden_channels, dropout_ratio=dropout_ratio,
             start_epsilon=epsilon, end_epsilon=epsilon, decay_steps=1, gpu=0)
     enemy_ai = ReversiAI(activation_func, n_layers, n_hidden_channels, gpu=0)
+
+    if best_ai_name is None:
+        best_ai_name = ai_dir + "/init"
+        ai.agent.save("DQN/" + best_ai_name)
 
     ai.agent.load("DQN/" + best_ai_name)
     best_result = Test(ai.generate_player, Random, 400)()["Total_WR"]
