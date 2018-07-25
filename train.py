@@ -7,6 +7,7 @@ from chainerrl.replay_buffer import ReplayBuffer
 from engine import *
 from players import *
 from dqn import *
+from minmax import *
 
 class Timer:
     def __init__(self):
@@ -246,14 +247,17 @@ def generate_ai(activation_func, n_layers, n_hidden_channels,
 def main():
     ai, ai_name, enemy_gen = generate_ai(
         activation_func   = 'leaky_relu',
-        n_layers          = 2,
-        n_hidden_channels = 24,
+        n_layers          = 5,
+        n_hidden_channels = 32,
         dropout_ratio     = 0,
         gamma             = 0.95,
         start_epsilon     = 1.0,
         end_epsilon       = 0.3,
         decay_steps       = 50000,
-        enemy             = 'SLFT' )
+        enemy             = 'SLFP' )
+
+    ai_name += '-deep0'
+    #enemy_gen = AlphaBetaPlayer.generate_player(1, ai.get_q_val)
 
     train = Train(
         ai                  = ai,
@@ -271,11 +275,11 @@ def main():
 def main2():
     activation_func   = 'leaky_relu'
     n_layers          = 5
-    n_hidden_channels = 24
+    n_hidden_channels = 32
     dropout_ratio     = 0
     epsilon           = 0.3
-    ai_dir            = "leaky_relu-5x24-vsBST"
-    best_ai_name      = None
+    ai_dir            = "leaky_relu-5x32-vsBST"
+    best_ai_name      = "leaky_relu-5x32-vsSLFT/100000"
 
     ai = ReversiAI(activation_func, n_layers, n_hidden_channels, dropout_ratio=dropout_ratio,
             start_epsilon=epsilon, end_epsilon=epsilon, decay_steps=1, gpu=0)
@@ -298,6 +302,7 @@ def main2():
             ai.agent.replay_updater.replay_buffer = ai.agent.replay_buffer
 
             Train(ai, enemy_ai.generate_player, 10000, Random, 200, 1000, 100, name)()
+            #Train(ai, AlphaBetaPlayer.generate_player(1, enemy_ai.get_q_val), 10000, Random, 200, 1000, 100, name)()
             ai.agent.save("DQN/" + name)
 
             result = Test(ai.generate_player, Random, 400)()["Total_WR"]

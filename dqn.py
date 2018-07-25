@@ -4,6 +4,7 @@ import numpy as np
 import chainer
 import chainer.functions as F
 import chainer.links as L
+from chainer import cuda
 import chainerrl
 import gym
 import gym.spaces
@@ -174,14 +175,15 @@ class ReversiAI:
         self.agent = ReversiDQN( self.env, activation_func_, n_layers, n_hidden_channels, dropout_ratio,
             gpu, gamma, start_epsilon, end_epsilon, decay_steps )
 
-    def get_q_vals(self, color, board):
+    def get_q_val(self, color, board):
         _, obs = ReversiEnv.get_observation(board)
 
         with chainer.using_config('train', False):
             with chainer.no_backprop_mode():
-                action_value = self.agent.model(np.asarray([obs]))
+                agent = self.agent
+                action_value = agent.model(agent.batch_states([obs], agent.xp, agent.phi))
                 q = float(action_value.max.data)
-                action = action_value.greedy_actions.data[0]
+                action = cuda.to_cpu(action_value.greedy_actions.data)[0]
 
         if board.current_turn is color:
             return divmod(action, 8), q
