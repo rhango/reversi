@@ -255,11 +255,8 @@ def main():
         explorer_name     = 'EpsilonGreedy',
         eps               = 0.3,
         temp              = 0.03,
-        decay_steps       = 50000,
-        enemy             = 'SLFP' )
+        enemy             = 'SLFT' )
 
-    #ai_name = 'boltzmann-test'
-    ai_name += '-deep0-T0.03'
     #enemy_gen = AlphaBetaPlayer.generate_player(1, ai.get_q_val)
 
     train = Train(

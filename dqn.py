@@ -109,9 +109,9 @@ class ReversiDQN(chainerrl.agents.DoubleDQN):
 
         replay_buffer = chainerrl.replay_buffer.ReplayBuffer(capacity=10**6)
 
-        if explorer_name == 'EpsilonGreedy'
+        if explorer_name == 'EpsilonGreedy':
             explorer = chainerrl.explorers.ConstantEpsilonGreedy(eps, env.action_space_sample)
-        else if explorer_name == 'Boltzmann'
+        elif explorer_name == 'Boltzmann':
             explorer = chainerrl.explorers.Boltzmann(temp)  # exp(2 / 0.87) ~ 10, exp(3) ~ 20
 
         super().__init__(q_func, optimizer, replay_buffer, gamma, explorer, gpu=gpu)
