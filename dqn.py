@@ -68,17 +68,6 @@ class ReversiEnv(gym.core.Env):
         place_list = np.where(self._possible_place)[0].astype(np.int32)
         return prng.np_random.choice(place_list)
 
-class ReversiActionValue(chainerrl.action_value.DiscreteActionValue):
-    def __init__(self, q_values, possible_places, q_values_formatter=lambda x: x):
-        super().__init__(q_values, q_values_formatter)
-        self._impossible_places = ~possible_places.astype(np.bool)
-
-    @cached_property
-    def greedy_actions(self):
-        q_val = self.q_values.data.copy()
-        q_val[ self._impossible_places ] = -np.inf
-        return chainer.Variable( q_val.argmax(axis=1).astype(np.int32) )
-
 class QFunction(chainer.Chain):
     def __init__(self, activation_func, n_layers, obs_size, n_hidden_channels, n_actions, dropout_ratio):
         self._activation_func = activation_func
@@ -97,11 +86,19 @@ class QFunction(chainer.Chain):
         h = self.l0(x)
         for layer in self._layers[1:]:
             h = layer( F.dropout(self._activation_func(h), ratio=self._dropout_ratio) )
-        return ReversiActionValue( h, x[:,0:self._n_actions] )
+
+        impossible_places = ~x[:,0:self._n_actions].astype(np.bool)
+        h.data[impossible_places] = -np.inf
+        # Make it not to select -inf, when calculate Q value of which state is terminal
+        # If -inf is selected, target Q value become nan in `_compute_target_values`
+        h.data[impossible_places.all(axis=1)] = 0.0
+        # currently, CuPy only supports slices that consist of one boolean array.
+        #h.data[impossible_places.all(axis=1), 27] = 0.0
+        return chainerrl.action_value.DiscreteActionValue(h)
 
 class ReversiDQN(chainerrl.agents.DoubleDQN):
     def __init__(self, env, activation_func, n_layers, n_hidden_channels, dropout_ratio,
-        gpu, gamma, start_epsilon, end_epsilon, decay_steps):
+            gpu, gamma, explorer_name, eps, temp):
 
         obs_size  = env.observation_space.shape[0]
         n_actions = env.action_space.n
@@ -112,11 +109,10 @@ class ReversiDQN(chainerrl.agents.DoubleDQN):
 
         replay_buffer = chainerrl.replay_buffer.ReplayBuffer(capacity=10**6)
 
-        explorer = chainerrl.explorers.LinearDecayEpsilonGreedy(
-            start_epsilon      = start_epsilon,
-            end_epsilon        = end_epsilon,
-            decay_steps        = decay_steps,
-            random_action_func = env.action_space_sample )
+        if explorer_name == 'EpsilonGreedy'
+            explorer = chainerrl.explorers.ConstantEpsilonGreedy(eps, env.action_space_sample)
+        else if explorer_name == 'Boltzmann'
+            explorer = chainerrl.explorers.Boltzmann(temp)  # exp(2 / 0.87) ~ 10, exp(3) ~ 20
 
         super().__init__(q_func, optimizer, replay_buffer, gamma, explorer, gpu=gpu)
 
@@ -163,17 +159,17 @@ class ReversiDQN(chainerrl.agents.DoubleDQN):
 
 class ReversiAI:
     def __init__( self, activation_func, n_layers, n_hidden_channels,
-        dropout_ratio = 0.0,
-        gamma         = 0.95,
-        start_epsilon = 1.0,
-        end_epsilon   = 0.3,
-        decay_steps   = 50000,
-        gpu           = None ):
+            dropout_ratio = 0.0,
+            gamma         = 0.95,
+            explorer_name = 'EpsilonGreedy',
+            eps           = 0.3,
+            temp          = 0.03,
+            gpu           = None ):
 
         self.env = ReversiEnv()
         activation_func_ = eval('F.{}'.format(activation_func))
         self.agent = ReversiDQN( self.env, activation_func_, n_layers, n_hidden_channels, dropout_ratio,
-            gpu, gamma, start_epsilon, end_epsilon, decay_steps )
+            gpu, gamma, explorer_name, eps, temp )
 
     def get_q_val(self, color, board):
         _, obs = ReversiEnv.get_observation(board)

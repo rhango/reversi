@@ -212,19 +212,20 @@ class OutputController:
 def generate_ai(activation_func, n_layers, n_hidden_channels,
         dropout_ratio = 0.0,
         gamma         = 0.95,
-        start_epsilon = 1.0,
-        end_epsilon   = 0.3,
-        decay_steps   = 50000,
+        explorer_name = 'EpsilonGreedy',
+        eps           = 0.3,
+        temp          = 0.03,
         enemy         = 'RND',
         gpu           = 0 ):
 
     ai = ReversiAI(activation_func, n_layers, n_hidden_channels, dropout_ratio=dropout_ratio,
-        gamma=gamma, start_epsilon=start_epsilon, end_epsilon=end_epsilon, decay_steps=decay_steps, gpu=gpu)
+        gamma=gamma, explorer_name=explorer_name, eps=eps, temp=temp, gpu=gpu)
 
     if enemy == 'RND':
         enemy_gen = Random
     elif enemy == 'DQN':
-        enemy_ai = ReversiAI(activation_func, n_layers, n_hidden_channels, decay_steps=decay_steps, gpu=gpu)
+        enemy_ai = ReversiAI(activation_func, n_layers, n_hidden_channels, dropout_ratio=dropout_ratio,
+            gamma=gamma, explorer_name=explorer_name, eps=eps, temp=temp, gpu=gpu)
         enemy_gen = enemy_ai.generate_trainer
         ai = ( ai, enemy_ai )
     elif enemy == 'SLFP':
@@ -251,12 +252,14 @@ def main():
         n_hidden_channels = 32,
         dropout_ratio     = 0,
         gamma             = 0.95,
-        start_epsilon     = 1.0,
-        end_epsilon       = 0.3,
+        explorer_name     = 'EpsilonGreedy',
+        eps               = 0.3,
+        temp              = 0.03,
         decay_steps       = 50000,
         enemy             = 'SLFP' )
 
-    ai_name += '-deep0'
+    #ai_name = 'boltzmann-test'
+    ai_name += '-deep0-T0.03'
     #enemy_gen = AlphaBetaPlayer.generate_player(1, ai.get_q_val)
 
     train = Train(
@@ -277,12 +280,14 @@ def main2():
     n_layers          = 5
     n_hidden_channels = 32
     dropout_ratio     = 0
-    epsilon           = 0.3
+    explorer_name     = 'EpsilonGreedy'
+    eps               = 0.3
+    temp              = 0.03
     ai_dir            = "leaky_relu-5x32-vsBST"
     best_ai_name      = "leaky_relu-5x32-vsSLFT/100000"
 
     ai = ReversiAI(activation_func, n_layers, n_hidden_channels, dropout_ratio=dropout_ratio,
-            start_epsilon=epsilon, end_epsilon=epsilon, decay_steps=1, gpu=0)
+            explorer_name=explorer_name, eps=eps, temp=temp, gpu=0)
     enemy_ai = ReversiAI(activation_func, n_layers, n_hidden_channels, gpu=0)
 
     if best_ai_name is None:
